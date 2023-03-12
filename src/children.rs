@@ -24,13 +24,11 @@ pub trait Child: Draw + Input {}
 
 pub trait Children {
     type Child: Child + ?Sized;
-
     fn draw_children(&self, rect: Rect, state: SelectionState) -> Result<Vec<Rect>> {
         let mut ret = Vec::new();
         let mut rect = rect;
         let info = self.child_state();
         for (i, child) in self.get_children().enumerate() {
-            rect = rect.down();
             match state {
                 SelectionState::Active => {
                     if i == info.active {

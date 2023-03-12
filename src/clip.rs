@@ -27,6 +27,8 @@ impl Clip {
     }
 }
 
+impl Child for Clip {}
+
 impl Children for Clip {
     type Child = dyn Effect;
     fn child_state(&self) -> &ChildState {
@@ -40,37 +42,23 @@ impl Children for Clip {
 impl Draw for Clip {
     fn draw(&self, rect: Rect, state: SelectionState) -> Result<Rect> {
         let mut out = stdout();
-        let mut rect = rect;
         let title = format! {"┃ {} {}", strs::SPEAKER, self.name};
         queue!(out, rect.pos(), title.state(state))?;
         let rects = self.draw_children(rect.right(), state)?;
         for rect in rects {
             queue!(out, rect.pos(), "┃".state(state))?;
+            queue!(out, rect.pos(), "┣".state(state))?;
         }
-        // for (i, effect) in self.effects.iter().enumerate() {
-        //     rect = if i == self.selected_effect {
-        //         effect.draw(rect.down(), SelectionState::Active)?
-        //     } else {
-        //         effect.draw(rect.down(), SelectionState::None)?
-        //     };
-        //     queue!(out, start.pos(), "┣".state(state))?;
-        //     let height = rect.y - start.y;
-        //     for _ in 0..height {
-        //         start = start.down();
-        //         queue!(out, start.pos(), "┃".state(state))?;
-        //     }
-        //     start = start.down();
-        // }
         Ok(rect.down().left())
     }
 }
 
 impl Input for Clip {
     fn handle_input(&mut self, event: Event) -> Option<Event> {
-        // let active_effect = self.;
+        let active_effect = &mut self.effects[self.child_state.active];
 
-        // let event = active_effect.handle_input(event);
+        let event = active_effect.handle_input(event);
 
-        Some(event)
+        event
     }
 }

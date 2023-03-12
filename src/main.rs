@@ -59,6 +59,8 @@ fn update(event: Event, search: &mut Search) -> Result<()> {
     search.handle_input(event);
     search.draw(Rect::new(10, 5, 20, 10), SelectionState::Active)?;
 
+    queue!(out, cursor::MoveTo(10, 10))?;
+
     info("Press q to quit".to_string())?;
 
     out.flush()
@@ -79,19 +81,3 @@ fn main() -> Result<()> {
 
     Ok(())
 }
-
-// trait DrawAll {
-//     fn draw_all(&mut self) -> Result<Rect>;
-// }
-
-// impl DrawAll for Vec<Box<dyn Draw>> {
-//     fn draw_all(&mut self, rect: Rect) -> Iterator<Item = Result<Rect>> {
-//         self.iter().enumerate().map(|(i, clip)| {
-//             if i == self.active_clip {
-//                 clip.draw(rect, SelectionState::Active)?
-//             } else {
-//                 clip.draw(rect, SelectionState::None)?
-//             }
-//         })
-//     }
-// }

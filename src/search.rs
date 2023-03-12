@@ -1,8 +1,9 @@
-use std::io::stdout;
+use std::{io::stdout, slice::Iter};
 
 use crossterm::{event::Event, queue, style, Result};
 
 use crate::{
+    children::{ChildState, Children},
     clip::Clip,
     helpers::{Rect, SelectionState},
     traits::{Draw, Input},
@@ -10,22 +11,32 @@ use crate::{
 
 pub struct Search {
     query: String,
-    clips: Vec<Clip>,
-    active_clip: usize,
+    clips: Vec<Box<Clip>>,
+    child_state: ChildState,
 }
 
 impl Search {
     pub fn query(query: String) -> Self {
         let mut clips = vec![
-            Clip::new("Clip 1".to_string()),
-            Clip::new("Clip 2".to_string()),
-            Clip::new("Clip 3".to_string()),
+            Box::new(Clip::new("Clip 1".to_string())),
+            Box::new(Clip::new("Clip 2".to_string())),
+            Box::new(Clip::new("Clip 3".to_string())),
         ];
         Self {
             query,
             clips,
-            active_clip: 0,
+            child_state: ChildState::default(),
         }
+    }
+}
+
+impl Children for Search {
+    type Child = Clip;
+    fn child_state(&self) -> &ChildState {
+        &self.child_state
+    }
+    fn get_children(&self) -> Iter<Box<Self::Child>> {
+        self.clips.iter()
     }
 }
 
@@ -34,20 +45,14 @@ impl Draw for Search {
         let mut rect = rect;
         let mut out = stdout();
         queue!(out, rect.pos(), style::Print("Search"))?;
-        for (i, clip) in self.clips.iter().enumerate() {
-            rect = if i == self.active_clip {
-                clip.draw(rect, SelectionState::Active)?
-            } else {
-                clip.draw(rect, SelectionState::None)?
-            }
-        }
+        self.draw_children(rect.down(), state)?;
         Ok(rect)
     }
 }
 
 impl Input for Search {
     fn handle_input(&mut self, event: Event) -> Option<Event> {
-        let active_clip = &mut self.clips[self.active_clip];
+        let active_clip = &mut self.clips[self.child_state.active];
         let event = active_clip.handle_input(event);
         event
     }

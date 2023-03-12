@@ -5,7 +5,7 @@ use crossterm::{event::Event, queue, style, Result};
 use crate::{
     helpers::{
         action::{Action, IsEvent},
-        Rect, SelectionState,
+        HorizontalRepeat, Rect, SelectionState,
     },
     strs,
     traits::{Draw, Input},
@@ -29,8 +29,9 @@ impl Draw for Slider {
     fn draw(&self, rect: Rect, state: SelectionState) -> Result<Rect> {
         let mut out = stdout();
 
-        let h = "─".repeat(rect.width as usize - 2);
-        queue!(out, rect.pos(), style::Print(&h), rect.down().pos())?;
+        queue!(out, rect.pos(),)?;
+        strs::H.h_repeat(rect.width)?;
+        queue!(out, rect.down().pos())?;
 
         match self.state {
             SliderState::MinMax(min, max) => {

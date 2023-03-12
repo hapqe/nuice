@@ -1,7 +1,11 @@
 pub mod action;
 pub mod style;
 
+use std::io::stdout;
+
 use crossterm::cursor;
+use crossterm::queue;
+use crossterm::Result;
 
 #[derive(Debug, Copy, Clone)]
 pub enum SelectionState {
@@ -66,5 +70,37 @@ impl Rect {
             width: self.width,
             height: self.height,
         }
+    }
+}
+
+pub trait HorizontalRepeat {
+    fn h_repeat(&self, n: u16) -> Result<()>;
+}
+
+impl HorizontalRepeat for &str {
+    fn h_repeat(&self, n: u16) -> Result<()> {
+        let mut out = stdout();
+        let text = self.repeat(n as usize);
+        queue!(out, crossterm::style::Print(text))?;
+        Ok(())
+    }
+}
+
+pub trait VerticalRepeat {
+    fn v_repeat(&self, n: u16) -> Result<()>;
+}
+
+impl VerticalRepeat for &str {
+    fn v_repeat(&self, n: u16) -> Result<()> {
+        let mut out = stdout();
+        for _ in 0..n {
+            queue!(
+                out,
+                crossterm::style::Print(self),
+                crossterm::cursor::MoveDown(1),
+                crossterm::cursor::MoveLeft(self.len() as u16)
+            )?;
+        }
+        Ok(())
     }
 }
