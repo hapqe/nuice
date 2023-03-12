@@ -1,3 +1,4 @@
+mod children;
 mod clip;
 mod header;
 mod helpers;

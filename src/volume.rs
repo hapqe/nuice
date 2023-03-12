@@ -1,6 +1,7 @@
 use std::io::stdout;
 
 use crate::{
+    children::Child,
     helpers::{Rect, SelectionState},
     slider::{Slider, SliderState},
     traits::{Draw, Effect, Input},
@@ -17,6 +18,8 @@ impl Effect for Volume {
         "Volume".to_string()
     }
 }
+
+impl Child for Volume {}
 
 impl Input for Volume {
     fn handle_input(&mut self, event: Event) -> Option<Event> {
