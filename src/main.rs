@@ -13,7 +13,7 @@ use crossterm::{
     style::{self, SetForegroundColor, Stylize},
     terminal::{
         disable_raw_mode, enable_raw_mode, Clear, ClearType, EnterAlternateScreen,
-        LeaveAlternateScreen,
+        LeaveAlternateScreen, ScrollDown, SetSize,
     },
     ExecutableCommand, QueueableCommand, Result,
 };
@@ -28,6 +28,11 @@ fn events() -> Result<()> {
             break;
         }
 
+        // if j
+        // if event == Event::Key(KeyCode::Char('j').into()) {
+        //     queue!(stdout(), SetSize(10, 10), ScrollDown(1))?;
+        // }
+
         update(event, &mut search)?;
     }
 
@@ -36,17 +41,15 @@ fn events() -> Result<()> {
 
 fn update(event: Event, search: &mut Search) -> Result<()> {
     let mut out = stdout();
-    // clear screen
 
     out.queue(Clear(ClearType::All))?;
 
     header()?;
-    // out.queue(cursor::MoveTo(10, 10))?;
-    // boxed("Hello World", 20, Some("🔍Search"))?;
 
-    out.queue(cursor::MoveTo(10, 5))?;
     search.handle_input(event);
-    search.draw(20, SelectionState::Active)?;
+    search.draw(Rect::new(10, 5, 20, 10), SelectionState::Active)?;
+
+    info("Press q to quit".to_string())?;
 
     out.flush()
 }
@@ -95,32 +98,39 @@ fn header() -> Result<()> {
     Ok(())
 }
 
+fn info(info: String) -> Result<()> {
+    let mut out = stdout();
+    let size = crossterm::terminal::size()?;
+    out.queue(cursor::MoveTo(0, size.1 - 1))?;
+    out.queue(style::Print(info.italic().grey()))?;
+    Ok(())
+}
+
 fn boxed(text: &str, width: i32, label: Option<&str>) -> Result<()> {
     let mut out = stdout();
-    let cursor = cursor::position()?;
     let h = strs::H.repeat(width as usize - 2);
     let text = format!("{:width$}", text, width = width as usize - 2);
 
-    queue!(
-        out,
-        cursor::MoveTo(cursor.0, cursor.1),
-        style::Print(strs::TL),
-        style::Print(&h),
-        style::Print(strs::TR),
-        cursor::MoveTo(cursor.0, cursor.1 + 1),
-        style::Print(strs::V),
-        style::Print(text),
-        style::Print(strs::V),
-        cursor::MoveTo(cursor.0, cursor.1 + 2),
-        style::Print(strs::BL),
-        style::Print(&h),
-        style::Print(strs::BR),
-    )?;
+    // queue!(
+    //     out,
+    //     cursor::MoveTo(cursor.0, cursor.1),
+    //     style::Print(strs::TL),
+    //     style::Print(&h),
+    //     style::Print(strs::TR),
+    //     cursor::MoveTo(cursor.0, cursor.1 + 1),
+    //     style::Print(strs::V),
+    //     style::Print(text),
+    //     style::Print(strs::V),
+    //     cursor::MoveTo(cursor.0, cursor.1 + 2),
+    //     style::Print(strs::BL),
+    //     style::Print(&h),
+    //     style::Print(strs::BR),
+    // )?;
 
     if let Some(label) = label {
         queue!(
             out,
-            cursor::MoveTo(cursor.0 + 2, cursor.1),
+            // cursor::MoveTo(cursor.0 + 2, cursor.1),
             style::Print(label),
         )?;
     }
@@ -134,7 +144,66 @@ enum SelectionState {
 }
 
 trait Draw {
-    fn draw(&self, width: i32, state: SelectionState) -> Result<()>;
+    fn draw(&self, rect: Rect, state: SelectionState) -> Result<Rect>;
+}
+
+#[derive(Debug, Clone, Copy)]
+struct Rect {
+    x: u16,
+    y: u16,
+    width: u16,
+    height: u16,
+}
+
+impl Rect {
+    fn new(x: u16, y: u16, width: u16, height: u16) -> Self {
+        Self {
+            x,
+            y,
+            width,
+            height,
+        }
+    }
+
+    fn down(&self) -> Self {
+        Self {
+            x: self.x,
+            y: self.y + 1,
+            width: self.width,
+            height: self.height,
+        }
+    }
+
+    fn right(&self) -> Self {
+        Self {
+            x: self.x + 1,
+            y: self.y,
+            width: self.width,
+            height: self.height,
+        }
+    }
+
+    fn right_n(&self, n: u16) -> Self {
+        Self {
+            x: self.x + n,
+            y: self.y,
+            width: self.width,
+            height: self.height,
+        }
+    }
+
+    fn pos(&self) -> cursor::MoveTo {
+        cursor::MoveTo(self.x, self.y)
+    }
+
+    fn left(&self) -> Self {
+        Self {
+            x: self.x - 1,
+            y: self.y,
+            width: self.width,
+            height: self.height,
+        }
+    }
 }
 
 struct Clip {
@@ -155,46 +224,33 @@ impl Clip {
 }
 
 impl Draw for Clip {
-    fn draw(&self, width: i32, state: SelectionState) -> Result<()> {
+    fn draw(&self, rect: Rect, state: SelectionState) -> Result<Rect> {
         let mut out = stdout();
-        let mut cursor = cursor::position()?;
+        let mut rect = rect;
         let title = format! {"┃ {} {}", strs::SPEAKER, self.name};
         let style = match state {
             SelectionState::None => |t: String| t.stylize(),
             SelectionState::Active => |t: String| t.green().bold(),
             SelectionState::Selected => |t: String| t.dark_green(),
         };
-        queue!(out, style::Print(style(title)), cursor.down_right())?;
+        queue!(out, rect.pos(), style::Print(style(title)),)?;
+        let mut start = rect.down();
+        rect = rect.right();
         for (i, effect) in self.effects.iter().enumerate() {
-            // queue!(
-            //     out,
-            //     style::Print(style("┣".to_string())),
-            //     cursor::MoveTo(cursor.0, cursor.1 + 1),
-            //     style::Print(style(strs::VB.to_string())),
-            //     cursor::MoveTo(cursor.0 + 1, cursor.1)
-            // )?;
-            if i == self.selected_effect {
-                effect.draw(width, SelectionState::Active)?;
+            rect = if i == self.selected_effect {
+                effect.draw(rect.down(), SelectionState::Active)?
             } else {
-                effect.draw(width, SelectionState::None)?;
+                effect.draw(rect.down(), SelectionState::None)?
+            };
+            queue!(out, start.pos(), style::Print(style("┣".to_string())))?;
+            let height = rect.y - start.y;
+            for i in 0..height {
+                start = start.down();
+                queue!(out, start.pos(), style::Print(style("┃".to_string())))?;
             }
-            let new = cursor::position()?;
-            queue!(out, cursor.down(), style::Print(style("┣".to_string())))?;
-            let height = new.1 - cursor.1;
-            for i in 2..height {
-                queue!(
-                    out,
-                    cursor::MoveTo(cursor.0, cursor.1 + i),
-                    style::Print(style(strs::VB.to_string()))
-                )?;
-            }
-            cursor = (cursor.0, cursor.1 + height - 1);
-            out.queue(new.position())?;
+            start = start.down();
         }
-        let new = cursor::position()?;
-        out.queue(new.left())?;
-        Ok(())
-        // if selected draw blue background
+        Ok(rect.down().left())
     }
 }
 
@@ -220,19 +276,18 @@ impl Search {
 }
 
 impl Draw for Search {
-    fn draw(&self, width: i32, state: SelectionState) -> Result<()> {
+    fn draw(&self, rect: Rect, state: SelectionState) -> Result<Rect> {
+        let mut rect = rect;
         let mut out = stdout();
-        let cursor = cursor::position()?;
-        queue!(out, style::Print("Search"), cursor.down())?;
+        queue!(out, rect.pos(), style::Print("Search"))?;
         for (i, clip) in self.clips.iter().enumerate() {
-            // move cursor down one
-            if i == self.active_clip {
-                clip.draw(width, SelectionState::Active)?;
+            rect = if i == self.active_clip {
+                clip.draw(rect, SelectionState::Active)?
             } else {
-                clip.draw(width, SelectionState::None)?;
+                clip.draw(rect, SelectionState::None)?
             }
         }
-        Ok(())
+        Ok(rect)
     }
 }
 
@@ -288,17 +343,35 @@ impl Slider {
 }
 
 impl Draw for Slider {
-    fn draw(&self, width: i32, state: SelectionState) -> Result<()> {
+    fn draw(&self, rect: Rect, state: SelectionState) -> Result<Rect> {
         let mut out = stdout();
-        let cursor = cursor::position()?;
-        let h = "─".repeat(width as usize - 2);
-        queue!(out, style::Print(&h), cursor.down())
+
+        let h = "─".repeat(rect.width as usize - 2);
+        queue!(out, rect.pos(), style::Print(&h), rect.down().pos())?;
+
+        match self.state {
+            SliderState::MinMax(min, max) => {
+                let pos = rect.right_n((min * 10.0) as u16);
+                queue!(out, pos.pos(), style::Print(strs::LEFT))?;
+            }
+            SliderState::Value(value) => {}
+        }
+
+        Ok(rect)
     }
 }
 
 impl Input for Slider {
     fn handle_input(&mut self, event: Event) -> Option<Event> {
         if event.is(Action::Right).is_some() {
+            match self.state {
+                SliderState::MinMax(min, max) => {
+                    self.state = SliderState::MinMax(min + 0.1, max + 0.1);
+                }
+                SliderState::Value(value) => {
+                    self.state = SliderState::Value(value + 0.1);
+                }
+            }
             return None;
         }
         Some(event)
@@ -323,18 +396,17 @@ impl Input for Volume {
 }
 
 impl Draw for Volume {
-    fn draw(&self, width: i32, state: SelectionState) -> Result<()> {
+    fn draw(&self, rect: Rect, state: SelectionState) -> Result<Rect> {
         let mut out = stdout();
-        let cursor = cursor::position()?;
-        queue!(out, style::Print(" Volume"), cursor.down(),)?;
-        self.min_max.draw(width, state)
+        queue!(out, rect.pos(), style::Print(" Volume"))?;
+        self.min_max.draw(rect.down(), state)
     }
 }
 
 impl Volume {
     fn new() -> Self {
         Self {
-            min_max: Slider::new(SliderState::MinMax(0.3, 0.0)),
+            min_max: Slider::new(SliderState::MinMax(0.3, 0.5)),
         }
     }
 }
@@ -394,45 +466,5 @@ impl<'a> EventThatAlsoIs for Option<EventThatIs<'a>> {
             return that_is.event.is(action);
         }
         None
-    }
-}
-
-trait Down {
-    fn down(&self) -> cursor::MoveTo;
-}
-
-impl Down for (u16, u16) {
-    fn down(&self) -> cursor::MoveTo {
-        cursor::MoveTo(self.0, self.1 + 1)
-    }
-}
-
-trait DownRight {
-    fn down_right(&self) -> cursor::MoveTo;
-}
-
-impl DownRight for (u16, u16) {
-    fn down_right(&self) -> cursor::MoveTo {
-        cursor::MoveTo(self.0 + 1, self.1 + 1)
-    }
-}
-
-trait Left {
-    fn left(&self) -> cursor::MoveTo;
-}
-
-impl Left for (u16, u16) {
-    fn left(&self) -> cursor::MoveTo {
-        cursor::MoveTo(self.0 - 1, self.1)
-    }
-}
-
-trait Position {
-    fn position(&self) -> cursor::MoveTo;
-}
-
-impl Position for (u16, u16) {
-    fn position(&self) -> cursor::MoveTo {
-        cursor::MoveTo(self.0, self.1)
     }
 }
