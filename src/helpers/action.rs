@@ -1,59 +1,41 @@
-use crossterm::event::{Event, KeyCode};
+use crossterm::event::{Event, KeyCode, KeyModifiers};
+
+use crate::info::info;
 
 pub enum Action {
     Up,
     Down,
     Left,
     Right,
-}
-
-pub struct EventThatIs<'a> {
-    event: &'a Event,
+    C_Down,
+    C_Up,
+    C_Left,
+    C_Right,
+    Toggle,
+    Play,
 }
 
 pub trait IsEvent {
-    fn is(&self, action: Action) -> Option<EventThatIs>;
+    fn is(&self, action: Action) -> bool;
+}
+
+// a macro for checking a keycode
+macro_rules! check_key {
+    ($event:expr, $keycode:ident) => {
+        *$event == Event::Key(KeyCode::$keycode.into())
+    };
 }
 
 impl IsEvent for Event {
-    fn is(&self, action: Action) -> Option<EventThatIs> {
-        if let Event::Key(key) = self {
-            match action {
-                Action::Up => {
-                    if key.code == KeyCode::Up {
-                        return Some(EventThatIs { event: self });
-                    }
-                }
-                Action::Down => {
-                    if key.code == KeyCode::Down {
-                        return Some(EventThatIs { event: self });
-                    }
-                }
-                Action::Left => {
-                    if key.code == KeyCode::Left {
-                        return Some(EventThatIs { event: self });
-                    }
-                }
-                Action::Right => {
-                    if key.code == KeyCode::Right {
-                        return Some(EventThatIs { event: self });
-                    }
-                }
-            }
+    fn is(&self, action: Action) -> bool {
+        match action {
+            Action::Up => check_key! {self, Up},
+            Action::Down => check_key!(self, Down),
+            Action::Left => check_key!(self, Left),
+            Action::Right => check_key!(self, Right),
+            Action::Toggle => check_key!(self, Tab),
+            Action::Play => check_key!(self, Enter),
+            _ => false,
         }
-        None
-    }
-}
-
-pub trait EventThatAlsoIs {
-    fn and(&self, action: Action) -> Option<EventThatIs>;
-}
-
-impl<'a> EventThatAlsoIs for Option<EventThatIs<'a>> {
-    fn and(&self, action: Action) -> Option<EventThatIs> {
-        if let Some(that_is) = self {
-            return that_is.event.is(action);
-        }
-        None
     }
 }

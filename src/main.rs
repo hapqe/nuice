@@ -29,7 +29,7 @@ use search::*;
 use traits::{Draw, Input};
 
 fn events() -> Result<()> {
-    let mut search = Search::query("".to_string());
+    let mut search = Search::query("hit".to_string());
     update(Event::FocusGained, &mut search)?;
     loop {
         let event = read()?;
@@ -37,11 +37,6 @@ fn events() -> Result<()> {
         if event == Event::Key(KeyCode::Char('q').into()) {
             break;
         }
-
-        // if j
-        // if event == Event::Key(KeyCode::Char('j').into()) {
-        //     queue!(stdout(), SetSize(10, 10), ScrollDown(1))?;
-        // }
 
         update(event, &mut search)?;
     }
@@ -57,11 +52,9 @@ fn update(event: Event, search: &mut Search) -> Result<()> {
     header()?;
 
     search.handle_input(event);
-    search.draw(Rect::new(10, 5, 20, 10), SelectionState::Active)?;
+    search.draw(Rect::new(10, 5, 40, 1), SelectionState::Active)?;
 
-    queue!(out, cursor::MoveTo(10, 10))?;
-
-    info("Press q to quit".to_string())?;
+    // info("Press q to quit".to_string())?;
 
     out.flush()
 }

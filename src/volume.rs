@@ -23,8 +23,7 @@ impl Child for Volume {}
 
 impl Input for Volume {
     fn handle_input(&mut self, event: Event) -> Option<Event> {
-        let event = self.min_max.handle_input(event);
-        event
+        self.min_max.handle_input(event)
     }
 }
 
@@ -32,7 +31,8 @@ impl Draw for Volume {
     fn draw(&self, rect: Rect, state: SelectionState) -> Result<Rect> {
         let mut out = stdout();
         queue!(out, rect.pos(), style::Print(" Volume"))?;
-        self.min_max.draw(rect.down(), state)
+        let end = self.min_max.draw(rect.down(), state)?;
+        Ok(rect.to(end))
     }
 }
 

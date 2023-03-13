@@ -1,9 +1,9 @@
-use std::{io::stdout, slice::Iter};
+use std::{fs, io::stdout, slice::Iter};
 
 use crossterm::{event::Event, queue, style, Result};
 
 use crate::{
-    children::{ChildState, Children},
+    children::Children,
     clip::Clip,
     helpers::{Rect, SelectionState},
     traits::{Draw, Input},
@@ -11,32 +11,30 @@ use crate::{
 
 pub struct Search {
     query: String,
-    clips: Vec<Box<Clip>>,
-    child_state: ChildState,
+    clips: Children<Clip>,
 }
 
 impl Search {
     pub fn query(query: String) -> Self {
-        let mut clips = vec![
-            Box::new(Clip::new("Clip 1".to_string())),
-            Box::new(Clip::new("Clip 2".to_string())),
-            Box::new(Clip::new("Clip 3".to_string())),
-        ];
+        let folder_path = "/home/hapke/Desktop/TestSounds";
+
+        let paths = fs::read_dir(folder_path).unwrap();
+
+        let mut clips = vec![];
+
+        for path in paths {
+            let path = path.unwrap().path();
+            let path = path.to_str().unwrap().to_string();
+            // if lowercase path contains lowercase query
+            if path.to_lowercase().contains(&query.to_lowercase()) {
+                clips.push(Box::new(Clip::new(path)));
+            }
+        }
+
         Self {
             query,
-            clips,
-            child_state: ChildState::default(),
+            clips: Children::new(clips),
         }
-    }
-}
-
-impl Children for Search {
-    type Child = Clip;
-    fn child_state(&self) -> &ChildState {
-        &self.child_state
-    }
-    fn get_children(&self) -> Iter<Box<Self::Child>> {
-        self.clips.iter()
     }
 }
 
@@ -45,15 +43,13 @@ impl Draw for Search {
         let mut rect = rect;
         let mut out = stdout();
         queue!(out, rect.pos(), style::Print("Search"))?;
-        self.draw_children(rect.down(), state)?;
+        self.clips.draw(rect.next(), state)?;
         Ok(rect)
     }
 }
 
 impl Input for Search {
     fn handle_input(&mut self, event: Event) -> Option<Event> {
-        let active_clip = &mut self.clips[self.child_state.active];
-        let event = active_clip.handle_input(event);
-        event
+        self.clips.active().handle_input(event)
     }
 }

@@ -5,6 +5,7 @@ use std::io::stdout;
 
 use crossterm::cursor;
 use crossterm::queue;
+use crossterm::style::StyledContent;
 use crossterm::Result;
 
 #[derive(Debug, Copy, Clone)]
@@ -37,7 +38,7 @@ impl Rect {
             x: self.x,
             y: self.y + 1,
             width: self.width,
-            height: self.height,
+            height: 1,
         }
     }
 
@@ -45,7 +46,7 @@ impl Rect {
         Self {
             x: self.x + 1,
             y: self.y,
-            width: self.width,
+            width: self.width - 1,
             height: self.height,
         }
     }
@@ -54,7 +55,7 @@ impl Rect {
         Self {
             x: self.x + n,
             y: self.y,
-            width: self.width,
+            width: self.width - n,
             height: self.height,
         }
     }
@@ -67,8 +68,35 @@ impl Rect {
         Self {
             x: self.x - 1,
             y: self.y,
-            width: self.width,
+            width: self.width + 1,
             height: self.height,
+        }
+    }
+
+    pub fn to(&self, rect: Rect) -> Self {
+        Self {
+            x: self.x,
+            y: self.y,
+            width: rect.width,
+            height: rect.height + self.height,
+        }
+    }
+
+    pub fn next(&self) -> Self {
+        Self {
+            x: self.x,
+            y: self.y + self.height,
+            width: self.width,
+            height: 1,
+        }
+    }
+
+    pub fn end(&self) -> Self {
+        Self {
+            x: self.x,
+            y: self.y + self.height - 1,
+            width: self.width,
+            height: 1,
         }
     }
 }
@@ -102,5 +130,39 @@ impl VerticalRepeat for &str {
             )?;
         }
         Ok(())
+    }
+}
+
+impl VerticalRepeat for crossterm::style::Print<StyledContent<String>> {
+    fn v_repeat(&self, n: u16) -> Result<()> {
+        let mut out = stdout();
+        for _ in 0..n {
+            queue!(
+                out,
+                self,
+                crossterm::cursor::MoveDown(1),
+                crossterm::cursor::MoveLeft(self.0.content().len() as u16)
+            )?;
+        }
+        Ok(())
+    }
+}
+
+pub trait CombinedRect {
+    fn combined(&self) -> Option<Rect>;
+}
+
+impl CombinedRect for Vec<Rect> {
+    fn combined(&self) -> Option<Rect> {
+        let first = self.first()?;
+        let last = self.last()?;
+
+        let x = first.x;
+        let y = first.y;
+
+        let width = first.width;
+        let height = last.y - y + last.height;
+
+        Some(Rect::new(x, y, width, height))
     }
 }
